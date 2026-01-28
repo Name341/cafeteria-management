@@ -78,9 +78,9 @@ docker-compose up -d --build
    - Frontend: http://localhost:3000
    - API: http://localhost:5000
    
-   **Из локальной сети (замените X.X на ваш IP):**
-   - Frontend: http://192.168.1.XX:3000
-   - API: http://192.168.1.XX:5000
+   **Из локальной сети (замените XXXXXX на ваш локальный IP):**
+   - Frontend: http://XXXXXX:3000
+   - API: http://XXXXXX:5000
    
    **Из интернета (используйте Cloudflare Tunnel):**
    ```bash
