@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: cafeteria_db
+    environment:
+      POSTGRES_USER: cafeteria_user
+      POSTGRES_PASSWORD: secure_password_change_me
+      POSTGRES_DB: cafeteria_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cafeteria_network
+
+  # Node.js Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cafeteria_backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      POSTGRES_HOST: cafeteria_db
+      POSTGRES_USER: cafeteria_user
+      POSTGRES_PASSWORD: secure_password_change_me
+      POSTGRES_DB: cafeteria_db
+      POSTGRES_PORT: 5432
+      SECRET_KEY: your_jwt_secret_key_change_me
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    networks:
+      - cafeteria_network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cafeteria_frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    networks:
+      - cafeteria_network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  postgres_data:
+
+networks:
+  cafeteria_network:
+    driver: bridge

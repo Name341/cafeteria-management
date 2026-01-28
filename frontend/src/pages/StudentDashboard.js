@@ -1,0 +1,446 @@
+import React, { useState, useEffect } from 'react';
+import { getMenu, createOrder, getMyOrders, createPayment, getProfile, updateProfile, addReview } from '../api/services';
+import './StudentDashboard.css';
+
+const StudentDashboard = () => {
+  const [activeTab, setActiveTab] = useState('menu');
+  const [menu, setMenu] = useState([]);
+  const [myOrders, setMyOrders] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  
+  // Профиль
+  const [profile, setProfile] = useState({});
+  const [editProfile, setEditProfile] = useState(false);
+  const [allergies, setAllergies] = useState('');
+  const [preferences, setPreferences] = useState('');
+
+  // Платежи
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentType, setPaymentType] = useState('one-time');
+
+  // Отзывы
+  const [reviewMealId, setReviewMealId] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  useEffect(() => {
+    if (activeTab === 'menu') {
+      fetchMenu();
+    } else if (activeTab === 'orders') {
+      fetchMyOrders();
+    } else if (activeTab === 'profile') {
+      fetchProfile();
+    } else if (activeTab === 'reviews') {
+      fetchMenu();
+    }
+  }, [activeTab, selectedDate]);
+
+  const fetchMenu = async () => {
+    setLoading(true);
+    try {
+      const response = await getMenu(selectedDate);
+      setMenu(response.data);
+      setError('');
+    } catch (err) {
+      setError('Не удалось загрузить меню');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMyOrders = async () => {
+    setLoading(true);
+    try {
+      const response = await getMyOrders();
+      setMyOrders(response.data);
+      setError('');
+    } catch (err) {
+      setError('Не удалось загрузить заказы');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchProfile = async () => {
+    setLoading(true);
+    try {
+      const response = await getProfile();
+      setProfile(response.data);
+      setAllergies(response.data.allergies || '');
+      setPreferences(response.data.preferences || '');
+      setError('');
+    } catch (err) {
+      setError('Не удалось загрузить профиль');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOrder = async (mealId) => {
+    try {
+      await createOrder({
+        mealId,
+        date: selectedDate
+      });
+      setSuccessMessage('Заказ создан!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      fetchMenu();
+    } catch (err) {
+      setError('Не удалось создать заказ');
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!paymentAmount || paymentAmount <= 0) {
+      setError('Введите корректную сумму');
+      return;
+    }
+    try {
+      await createPayment({
+        amount: parseFloat(paymentAmount),
+        paymentType
+      });
+      setSuccessMessage('Платеж успешно выполнен!');
+      setPaymentAmount('');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError('Ошибка при обработке платежа');
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    try {
+      await updateProfile({
+        allergies,
+        preferences
+      });
+      setSuccessMessage('Профиль обновлен!');
+      setEditProfile(false);
+      setTimeout(() => setSuccessMessage(''), 3000);
+      fetchProfile();
+    } catch (err) {
+      setError('Ошибка при обновлении профиля');
+    }
+  };
+
+  const handleReview = async () => {
+    if (!reviewMealId) {
+      setError('Выберите блюдо для отзыва');
+      return;
+    }
+    try {
+      await addReview({
+        mealId: parseInt(reviewMealId),
+        rating: parseInt(reviewRating),
+        comment: reviewComment
+      });
+      setSuccessMessage('Отзыв отправлен!');
+      setReviewMealId('');
+      setReviewComment('');
+      setReviewRating(5);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError('Ошибка при отправке отзыва');
+    }
+  };
+
+  const breakfastItems = menu.filter(item => item.meal_type === 'breakfast');
+  const lunchItems = menu.filter(item => item.meal_type === 'lunch');
+
+  return (
+    <div className="student-dashboard">
+      <header className="dashboard-header">
+        <h1>🍽️ Столовая</h1>
+        <div className="header-right">
+          <span className="user-name">{user.fullName}</span>
+          <button onClick={() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+          }} className="logout-btn">Выход</button>
+        </div>
+      </header>
+
+      <nav className="tabs-nav">
+        <button 
+          className={`tab ${activeTab === 'menu' ? 'active' : ''}`}
+          onClick={() => setActiveTab('menu')}
+        >
+          📋 Меню
+        </button>
+        <button 
+          className={`tab ${activeTab === 'orders' ? 'active' : ''}`}
+          onClick={() => setActiveTab('orders')}
+        >
+          🛒 Мои заказы
+        </button>
+        <button 
+          className={`tab ${activeTab === 'payment' ? 'active' : ''}`}
+          onClick={() => setActiveTab('payment')}
+        >
+          💳 Оплата
+        </button>
+        <button 
+          className={`tab ${activeTab === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          👤 Профиль
+        </button>
+        <button 
+          className={`tab ${activeTab === 'reviews' ? 'active' : ''}`}
+          onClick={() => setActiveTab('reviews')}
+        >
+          ⭐ Отзывы
+        </button>
+      </nav>
+
+      <main className="dashboard-content">
+        {error && <div className="error-message">{error}</div>}
+        {successMessage && <div className="success-message">{successMessage}</div>}
+
+        {/* МЕНЮ */}
+        {activeTab === 'menu' && (
+          <div className="tab-content">
+            <div className="date-selector">
+              <label>Выберите дату:</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            </div>
+
+            {loading ? (
+              <div className="loading">Загрузка...</div>
+            ) : (
+              <div className="menu-container">
+                <section className="meal-section">
+                  <h2>🥣 Завтраки</h2>
+                  {breakfastItems.length > 0 ? (
+                    <div className="meal-grid">
+                      {breakfastItems.map(item => (
+                        <div key={item.id} className="meal-card">
+                          <h3>{item.name}</h3>
+                          <p>{item.description}</p>
+                          <div className="meal-nutritions">
+                            <span>Б: {item.proteins}г</span>
+                            <span>Ж: {item.fats}г</span>
+                            <span>У: {item.carbs}г</span>
+                            <span>⚡ {item.calories} ккал</span>
+                          </div>
+                          {item.allergens && <p className="allergens">⚠️ Аллергены: {item.allergens}</p>}
+                          <div className="meal-footer">
+                            <span className="price">{item.price}₽</span>
+                            <button onClick={() => handleOrder(item.id)}>Заказать</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="no-items">Нет доступных завтраков</p>
+                  )}
+                </section>
+
+                <section className="meal-section">
+                  <h2>🍽️ Обеды</h2>
+                  {lunchItems.length > 0 ? (
+                    <div className="meal-grid">
+                      {lunchItems.map(item => (
+                        <div key={item.id} className="meal-card">
+                          <h3>{item.name}</h3>
+                          <p>{item.description}</p>
+                          <div className="meal-nutritions">
+                            <span>Б: {item.proteins}г</span>
+                            <span>Ж: {item.fats}г</span>
+                            <span>У: {item.carbs}г</span>
+                            <span>⚡ {item.calories} ккал</span>
+                          </div>
+                          {item.allergens && <p className="allergens">⚠️ Аллергены: {item.allergens}</p>}
+                          <div className="meal-footer">
+                            <span className="price">{item.price}₽</span>
+                            <button onClick={() => handleOrder(item.id)}>Заказать</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="no-items">Нет доступных обедов</p>
+                  )}
+                </section>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* МОИ ЗАКАЗЫ */}
+        {activeTab === 'orders' && (
+          <div className="tab-content">
+            <h2>Мои заказы</h2>
+            {loading ? (
+              <div className="loading">Загрузка...</div>
+            ) : myOrders.length > 0 ? (
+              <div className="orders-list">
+                {myOrders.map(order => (
+                  <div key={order.id} className="order-item">
+                    <div className="order-header">
+                      <h3>{order.meal_name}</h3>
+                      <span className={`status status-${order.status}`}>{order.status}</span>
+                    </div>
+                    <p>Дата заказа: {new Date(order.created_at).toLocaleDateString('ru-RU')}</p>
+                    <p>Дата получения: {order.order_date}</p>
+                    {order.status === 'pending' && (
+                      <button className="mark-received-btn">Отметить получением</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="no-items">У вас нет заказов</p>
+            )}
+          </div>
+        )}
+
+        {/* ОПЛАТА */}
+        {activeTab === 'payment' && (
+          <div className="tab-content">
+            <h2>💳 Оплата питания</h2>
+            <div className="payment-form">
+              <div className="form-group">
+                <label>Тип платежа:</label>
+                <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)}>
+                  <option value="one-time">Разовый платеж</option>
+                  <option value="subscription">Абонемент</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Сумма (₽):</label>
+                <input
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="Введите сумму"
+                  min="0"
+                  step="100"
+                />
+              </div>
+              <button onClick={handlePayment} className="pay-btn">Оплатить</button>
+            </div>
+            <div className="payment-info">
+              <h3>ℹ️ Информация</h3>
+              <p>• Разовый платеж - оплата за одноразовый заказ</p>
+              <p>• Абонемент - ежемесячная подписка на питание</p>
+            </div>
+          </div>
+        )}
+
+        {/* ПРОФИЛЬ */}
+        {activeTab === 'profile' && (
+          <div className="tab-content">
+            <h2>👤 Мой профиль</h2>
+            {loading ? (
+              <div className="loading">Загрузка...</div>
+            ) : (
+              <div className="profile-section">
+                <div className="profile-info">
+                  <p><strong>Email:</strong> {profile.email}</p>
+                  <p><strong>ФИ:</strong> {profile.full_name}</p>
+                  <p><strong>Роль:</strong> {profile.role === 'student' ? 'Ученик' : profile.role}</p>
+                </div>
+
+                {editProfile ? (
+                  <div className="profile-edit">
+                    <div className="form-group">
+                      <label>Пищевые аллергии:</label>
+                      <textarea
+                        value={allergies}
+                        onChange={(e) => setAllergies(e.target.value)}
+                        placeholder="Укажите ваши аллергии (если есть)"
+                        rows="3"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Предпочтения в пище:</label>
+                      <textarea
+                        value={preferences}
+                        onChange={(e) => setPreferences(e.target.value)}
+                        placeholder="Укажите ваши предпочтения (вегетарианец, без глютена и т.д.)"
+                        rows="3"
+                      />
+                    </div>
+                    <div className="button-group">
+                      <button onClick={handleUpdateProfile} className="save-btn">Сохранить</button>
+                      <button onClick={() => setEditProfile(false)} className="cancel-btn">Отмена</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="profile-view">
+                    <div className="info-box">
+                      <h3>Пищевые аллергии:</h3>
+                      <p>{allergies || 'Не указано'}</p>
+                    </div>
+                    <div className="info-box">
+                      <h3>Предпочтения в пище:</h3>
+                      <p>{preferences || 'Не указано'}</p>
+                    </div>
+                    <button onClick={() => setEditProfile(true)} className="edit-btn">Редактировать</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ОТЗЫВЫ */}
+        {activeTab === 'reviews' && (
+          <div className="tab-content">
+            <h2>⭐ Оставить отзыв о блюде</h2>
+            <div className="review-form">
+              <div className="form-group">
+                <label>Выберите блюдо:</label>
+                <select value={reviewMealId} onChange={(e) => setReviewMealId(e.target.value)}>
+                  <option value="">-- Выберите блюдо --</option>
+                  {menu.map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Оценка:</label>
+                <div className="rating-selector">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      className={`star ${star <= reviewRating ? 'active' : ''}`}
+                      onClick={() => setReviewRating(star)}
+                    >
+                      ⭐
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Комментарий:</label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Напишите ваш комментарий"
+                  rows="4"
+                />
+              </div>
+              <button onClick={handleReview} className="submit-review-btn">Отправить отзыв</button>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default StudentDashboard;
