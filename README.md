@@ -69,12 +69,23 @@ cp .env.example .env
 
 3. Запустите приложение:
 ```bash
-docker-compose up -d
+docker-compose up -d --build
 ```
 
-4. Приложение будет доступно по адресу:
+4. Приложение будет доступно:
+   
+   **На этом компьютере:**
    - Frontend: http://localhost:3000
    - API: http://localhost:5000
+   
+   **Из локальной сети (замените X.X на ваш IP):**
+   - Frontend: http://192.168.1.XX:3000
+   - API: http://192.168.1.XX:5000
+   
+   **Из интернета (используйте Cloudflare Tunnel):**
+   ```bash
+   cloudflared tunnel --url http://localhost:3000
+   ```
 
 ### Локальная разработка
 
