@@ -23,13 +23,15 @@ const LoginPage = () => {
       localStorage.setItem('user', JSON.stringify(response.data.user));
 
       // Перенаправить в зависимости от роли
-      if (response.data.user.role === 'admin') {
-        navigate('/admin');
-      } else if (response.data.user.role === 'cook') {
-        navigate('/cook');
-      } else {
-        navigate('/student');
-      }
+      setTimeout(() => {
+        if (response.data.user.role === 'admin') {
+          navigate('/admin');
+        } else if (response.data.user.role === 'cook') {
+          navigate('/cook');
+        } else {
+          navigate('/student');
+        }
+      }, 100);
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка авторизации');
     } finally {

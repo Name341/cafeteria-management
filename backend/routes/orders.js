@@ -13,6 +13,42 @@ router.post('/', authenticateToken, authorizeRole('student'), async (req, res) =
       return res.status(400).json({ error: 'Необходимы мера и дата' });
     }
 
+    // Получаем информацию о блюде
+    const mealResult = await pool.query(
+      'SELECT price, name FROM menu WHERE id = $1',
+      [mealId]
+    );
+
+    if (mealResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Блюдо не найдено' });
+    }
+
+    const meal = mealResult.rows[0];
+    const totalAmount = meal.price * portionSize;
+
+    // Проверяем баланс пользователя
+    const userResult = await pool.query(
+      'SELECT balance FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    const userBalance = userResult.rows[0].balance;
+
+    if (userBalance < totalAmount) {
+      return res.status(400).json({ error: 'Недостаточно средств на балансе' });
+    }
+
+    // Списываем средства с баланса
+    await pool.query(
+      'UPDATE users SET balance = balance - $1 WHERE id = $2',
+      [totalAmount, req.user.id]
+    );
+
+    // Создаем заказ
     const result = await pool.query(
       `INSERT INTO orders (user_id, meal_id, order_date, portion_size, status, created_at)
        VALUES ($1, $2, $3, $4, 'pending', NOW())
@@ -22,7 +58,8 @@ router.post('/', authenticateToken, authorizeRole('student'), async (req, res) =
 
     res.status(201).json({
       message: 'Заказ создан',
-      order: result.rows[0]
+      order: result.rows[0],
+      deductedAmount: totalAmount
     });
   } catch (error) {
     console.error('Ошибка создания заказа:', error);
@@ -101,6 +138,33 @@ router.get('/date/:date', authenticateToken, authorizeRole('cook'), async (req, 
   } catch (error) {
     console.error('Ошибка получения заказов на дату:', error);
     res.status(500).json({ error: 'Ошибка при получении заказов' });
+  }
+});
+
+// Отметить выдачу блюда (повар)
+router.put('/:orderId/mark-served', authenticateToken, authorizeRole('cook'), async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const result = await pool.query(
+      `UPDATE orders
+       SET status = 'received', received_at = NOW()
+       WHERE id = $1 AND status = 'pending'
+       RETURNING *`,
+      [orderId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Заказ не найден или уже выдан' });
+    }
+
+    res.json({
+      message: 'Выдача блюда отмечена',
+      order: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Ошибка отметки выдачи блюда:', error);
+    res.status(500).json({ error: 'Ошибка при отметке выдачи блюда' });
   }
 });
 

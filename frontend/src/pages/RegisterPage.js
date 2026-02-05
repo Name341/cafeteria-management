@@ -21,17 +21,18 @@ const RegisterPage = () => {
   };
 
   const validateForm = () => {
+    const normalizedSpecialPassword = specialPassword.trim();
     if (!email || !password || !confirmPassword || !fullName) {
       setError('Все поля обязательны');
       return false;
     }
 
-    if ((role === 'cook' || role === 'admin') && !specialPassword) {
+    if ((role === 'cook' || role === 'admin') && !normalizedSpecialPassword) {
       setError(`Специальный пароль обязателен для регистрации ${role === 'cook' ? 'повара' : 'администратора'}`);
       return false;
     }
 
-    if ((role === 'cook' || role === 'admin') && specialPassword !== SPECIAL_PASSWORDS[role]) {
+    if ((role === 'cook' || role === 'admin') && normalizedSpecialPassword !== SPECIAL_PASSWORDS[role]) {
       setError(`Неверный специальный пароль для ${role === 'cook' ? 'повара' : 'администратора'}`);
       return false;
     }
@@ -66,11 +67,13 @@ const RegisterPage = () => {
     setLoading(true);
 
     try {
+      const normalizedSpecialPassword = specialPassword.trim();
       const response = await register({
         email,
         password,
         fullName,
-        role
+        role,
+        specialPassword: normalizedSpecialPassword
       });
 
       setSuccess('Регистрация успешна! Перенаправление...');

@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getExpensesReport, approvePurchaseRequest } from '../api/services';
 import './StudentDashboard.css';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('statistics');
   const [loading] = useState(false);
   const [error] = useState('');
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestsError, setRequestsError] = useState('');
+  const [purchaseRequests, setPurchaseRequests] = useState([]);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -16,6 +20,35 @@ const AdminDashboard = () => {
     todayOrders: 45,
     lowInventoryItems: 8
   };
+
+  useEffect(() => {
+    if (activeTab === 'requests') {
+      fetchPurchaseRequests();
+    }
+  }, [activeTab]);
+
+  const fetchPurchaseRequests = async () => {
+    setRequestsLoading(true);
+    setRequestsError('');
+    try {
+      const response = await getExpensesReport();
+      setPurchaseRequests(response.data || []);
+    } catch (err) {
+      setRequestsError('Не удалось загрузить заявки на закупку');
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
+  const handleApproval = async (requestId, approvalStatus) => {
+    try {
+      await approvePurchaseRequest(requestId, approvalStatus);
+      fetchPurchaseRequests();
+    } catch (err) {
+      alert('Ошибка при изменении статуса: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
 
   return (
     <div className="student-dashboard">
@@ -116,11 +149,72 @@ const AdminDashboard = () => {
             <h2>✅ Согласование заявок на закупку</h2>
             <div className="requests-list">
               <h3>Ожидающие одобрения:</h3>
-              <p className="no-items">Нет новых заявок</p>
+              {requestsError && <div className="error-message">{requestsError}</div>}
+              {requestsLoading ? (
+                <div className="loading">Загрузка...</div>
+              ) : (
+                <>
+                  {purchaseRequests.filter((r) => r.status === 'pending').length === 0 ? (
+                    <p className="no-items">Нет новых заявок</p>
+                  ) : (
+                    <div className="requests-table">
+                      {purchaseRequests
+                        .filter((r) => r.status === 'pending')
+                        .map((req) => (
+                          <div className="request-item" key={req.id}>
+                            <div className="request-name">{req.item_name}</div>
+                            <div className="request-meta">
+                              {req.quantity} · {req.unit_price} ₽ · {req.total_cost} ₽
+                            </div>
+                            <div className="request-actions">
+                              <button
+                                className="submit-btn"
+                                onClick={() => handleApproval(req.id, 'выполнено')}
+                              >
+                                Одобрить
+                              </button>
+                              <button
+                                className="submit-btn"
+                                onClick={() => handleApproval(req.id, 'отклонено')}
+                              >
+                                Отклонить
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             <div className="requests-history">
               <h3>История заявок:</h3>
-              <p className="no-items">История пуста</p>
+              {requestsLoading ? (
+                <div className="loading">Загрузка...</div>
+              ) : (
+                <>
+                  {purchaseRequests.filter((r) => r.status !== 'pending').length === 0 ? (
+                    <p className="no-items">История пуста</p>
+                  ) : (
+                    <div className="requests-table">
+                      {purchaseRequests
+                        .filter((r) => r.status !== 'pending')
+                        .map((req) => (
+                          <div className="request-item" key={req.id}>
+                            <div className="request-name">{req.item_name}</div>
+                            <div className="request-meta">
+                              {req.quantity} · {req.unit_price} ₽ · {req.total_cost} ₽ ·
+                              {req.status === 'approved' ? 'одобрено' :
+                               req.status === 'rejected' ? 'отклонено' :
+                               req.status === 'pending' ? 'ожидает' :
+                               req.status}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}

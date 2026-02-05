@@ -6,7 +6,12 @@ const getAPIUrl = () => {
     return process.env.REACT_APP_API_URL;
   }
   
-  // Иначе используем тот же хост, что и фронтенд, но порт 5000
+  // Иначе используем localhost с портом 5000 для разработки
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5000';
+  }
+  
+  // Для других случаев используем тот же хост, что и фронтенд, но порт 5000
   const host = window.location.hostname;
   return `http://${host}:5000`;
 };

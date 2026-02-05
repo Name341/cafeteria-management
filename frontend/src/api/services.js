@@ -45,9 +45,22 @@ export const getMyOrders = () => {
   return api.get('/orders/my-orders');
 };
 
+export const getOrdersByDate = (date) => {
+  return api.get(`/orders/date/${date}`);
+};
+
+export const markOrderServed = (orderId) => {
+  return api.put(`/orders/${orderId}/mark-served`);
+};
+
 // Создать платеж
 export const createPayment = (paymentData) => {
   return api.post('/payments', paymentData);
+};
+
+// Пополнить баланс
+export const depositBalance = (amount) => {
+  return api.post('/payments/deposit', { amount });
 };
 
 // Получить историю платежей
@@ -80,6 +93,11 @@ export const getExpensesReport = () => {
   return api.get('/admin/expenses-report');
 };
 
+// РЎРѕРіР»Р°СЃРѕРІР°С‚СЊ Р·Р°СЏРІРєСѓ (Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ)
+export const approvePurchaseRequest = (requestId, approvalStatus) => {
+  return api.put(`/admin/purchase-requests/${requestId}/approve`, { approvalStatus });
+};
+
 // Создать заявку на закупку (повар)
 export const createPurchaseRequest = (requestData) => {
   return api.post('/purchases', requestData);
@@ -98,4 +116,14 @@ export const getInventory = () => {
 // Обновить остатки (повар)
 export const updateInventory = (itemId, quantity) => {
   return api.put(`/purchases/inventory/${itemId}`, { quantity });
+};
+
+// Получить доступные продукты для меню (повар)
+export const getAvailableItems = () => {
+  return api.get('/purchases/available-items');
+};
+
+// Проверить наличие товаров и обновить меню (повар)
+export const checkInventory = () => {
+  return api.post('/purchases/check-inventory');
 };

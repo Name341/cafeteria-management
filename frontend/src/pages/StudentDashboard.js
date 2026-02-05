@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getMenu, createOrder, getMyOrders, createPayment, getProfile, updateProfile, addReview } from '../api/services';
+import { getMenu, createOrder, getMyOrders, createPayment, getProfile, updateProfile, addReview, depositBalance } from '../api/services';
 import './StudentDashboard.css';
 
 const StudentDashboard = () => {
@@ -20,6 +20,7 @@ const StudentDashboard = () => {
   // Платежи
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentType, setPaymentType] = useState('one-time');
+  const [depositAmount, setDepositAmount] = useState('');
 
   // Отзывы
   const [reviewMealId, setReviewMealId] = useState('');
@@ -81,17 +82,50 @@ const StudentDashboard = () => {
     }
   };
 
+  const handleDeposit = async () => {
+    if (!depositAmount || depositAmount <= 0) {
+      setError('Введите корректную сумму для пополнения');
+      return;
+    }
+    
+    try {
+      const response = await depositBalance(parseFloat(depositAmount));
+      setSuccessMessage(`Баланс успешно пополнен на ${depositAmount}₽!`);
+      setDepositAmount('');
+      // Обновляем профиль для отображения нового баланса
+      setProfile(prev => ({
+        ...prev,
+        balance: response.data.balance
+      }));
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError('Ошибка при пополнении баланса');
+    }
+  };
+
   const handleOrder = async (mealId) => {
     try {
-      await createOrder({
+      const response = await createOrder({
         mealId,
         date: selectedDate
       });
-      setSuccessMessage('Заказ создан!');
+      
+      // Если заказ создан успешно и были списаны средства
+      if (response.data.deductedAmount) {
+        setSuccessMessage(`Заказ создан! Списано: ${response.data.deductedAmount}₽`);
+        // Обновляем баланс в профиле
+        setProfile(prev => ({
+          ...prev,
+          balance: (parseFloat(prev.balance) || 0) - response.data.deductedAmount
+        }));
+      } else {
+        setSuccessMessage('Заказ создан!');
+      }
+      
       setTimeout(() => setSuccessMessage(''), 3000);
       fetchMenu();
     } catch (err) {
-      setError('Не удалось создать заказ');
+      setError('Не удалось создать заказ: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -350,6 +384,7 @@ const StudentDashboard = () => {
                   <p><strong>Email:</strong> {profile.email}</p>
                   <p><strong>ФИ:</strong> {profile.full_name}</p>
                   <p><strong>Роль:</strong> {profile.role === 'student' ? 'Ученик' : profile.role}</p>
+                  <p><strong>Баланс:</strong> {profile.balance ? `${profile.balance}₽` : '0₽'}</p>
                 </div>
 
                 {editProfile ? (
@@ -372,6 +407,20 @@ const StudentDashboard = () => {
                         rows="3"
                       />
                     </div>
+                    <div className="form-group">
+                      <label>Пополнить баланс:</label>
+                      <div className="balance-controls">
+                        <input
+                          type="number"
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(e.target.value)}
+                          placeholder="Сумма пополнения"
+                          min="0"
+                          step="100"
+                        />
+                        <button onClick={handleDeposit} className="deposit-btn">Пополнить</button>
+                      </div>
+                    </div>
                     <div className="button-group">
                       <button onClick={handleUpdateProfile} className="save-btn">Сохранить</button>
                       <button onClick={() => setEditProfile(false)} className="cancel-btn">Отмена</button>
@@ -386,6 +435,10 @@ const StudentDashboard = () => {
                     <div className="info-box">
                       <h3>Предпочтения в пище:</h3>
                       <p>{preferences || 'Не указано'}</p>
+                    </div>
+                    <div className="info-box">
+                      <h3>Баланс:</h3>
+                      <p>{profile.balance ? `${profile.balance}₽` : '0₽'}</p>
                     </div>
                     <button onClick={() => setEditProfile(true)} className="edit-btn">Редактировать</button>
                   </div>

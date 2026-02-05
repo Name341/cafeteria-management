@@ -9,15 +9,46 @@ router.get('/:date', async (req, res) => {
   try {
     const { date } = req.params;
 
-    const result = await pool.query(
-      `SELECT id, meal_type, name, description, price, allergens, calories, proteins, fats, carbs, created_at
-       FROM menu 
-       WHERE date = $1 
-       ORDER BY meal_type, name`,
+    // Получаем основное меню
+    const menuResult = await pool.query(
+      `SELECT m.id, m.meal_type, m.name, m.description, m.price, m.allergens, m.calories, m.proteins, m.fats, m.carbs, m.created_at
+       FROM menu m
+       LEFT JOIN inventory i ON LOWER(m.name) = LOWER(i.item_name)
+       WHERE m.date = $1 AND (i.quantity IS NULL OR i.quantity > 0)
+       ORDER BY m.meal_type, m.name`,
       [date]
     );
 
-    res.json(result.rows);
+    // Получаем все доступные инвентарные позиции
+    const inventoryResult = await pool.query(
+      `SELECT item_name FROM inventory WHERE quantity > 0`
+    );
+
+    // Добавляем кусок белого хлеба по умолчанию
+    let menuItems = menuResult.rows;
+    const inventoryItems = inventoryResult.rows.map(item => item.item_name.toLowerCase());
+    
+    // Проверяем, есть ли уже хлеб в меню
+    const hasBread = menuItems.some(item => item.name.toLowerCase().includes('хлеб'));
+    
+    // Всегда добавляем кусок белого хлеба по умолчанию
+    if (!hasBread) {
+      menuItems = [...menuItems, {
+        id: 0,
+        meal_type: 'bread',
+        name: 'Кусок белого хлеба',
+        description: 'Стандартный кусок белого хлеба',
+        price: 0,
+        allergens: 'Глютен',
+        calories: 70,
+        proteins: 2.0,
+        fats: 1.0,
+        carbs: 13.0,
+        created_at: new Date().toISOString()
+      }];
+    }
+
+    res.json(menuItems);
   } catch (error) {
     console.error('Ошибка получения меню:', error);
     res.status(500).json({ error: 'Ошибка при получении меню' });
@@ -46,10 +77,10 @@ router.get('/month/:year/:month', async (req, res) => {
   }
 });
 
-// Добавить блюдо в меню (только администратор)
+// Добавить блюдо в меню (администратор или повар)
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'cook') {
       return res.status(403).json({ error: 'Доступ запрещен' });
     }
 

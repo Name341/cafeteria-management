@@ -16,6 +16,7 @@ const SPECIAL_PASSWORDS = {
 router.post('/register', async (req, res) => {
   try {
     const { email, password, fullName, role = 'student' } = req.body;
+    const specialPassword = (req.body.specialPassword || '').trim();
 
     // Валидация входных данных
     if (!email || !password || !fullName) {
@@ -23,7 +24,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Проверка специального пароля для повара и админа
-    if ((role === 'cook' || role === 'admin') && req.body.specialPassword !== SPECIAL_PASSWORDS[role]) {
+    if ((role === 'cook' || role === 'admin') && specialPassword !== SPECIAL_PASSWORDS[role]) {
       return res.status(403).json({ error: `Неверный специальный пароль для ${role === 'cook' ? 'повара' : 'администратора'}` });
     }
 
@@ -47,10 +48,10 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Создание пользователя
-    const result = await pool.query(
-      'INSERT INTO users (email, password, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, full_name, role',
-      [email, hashedPassword, fullName, role]
-    );
+        const result = await pool.query(
+          'INSERT INTO users (email, password, full_name, role, balance) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, full_name, role, balance',
+          [email, hashedPassword, fullName, role, 0.00]
+        );
 
     const user = result.rows[0];
 
@@ -132,7 +133,7 @@ router.post('/login', async (req, res) => {
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, email, full_name, role, allergies, preferences FROM users WHERE id = $1',
+      'SELECT id, email, full_name, role, allergies, preferences, balance FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -153,7 +154,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
     const { fullName, allergies, preferences } = req.body;
 
     const result = await pool.query(
-      'UPDATE users SET full_name = $1, allergies = $2, preferences = $3 WHERE id = $4 RETURNING id, email, full_name, allergies, preferences',
+      'UPDATE users SET full_name = $1, allergies = $2, preferences = $3 WHERE id = $4 RETURNING id, email, full_name, allergies, preferences, balance',
       [fullName, allergies, preferences, req.user.id]
     );
 

@@ -66,6 +66,24 @@ router.get('/inventory', authenticateToken, authorizeRole('cook'), async (req, r
   }
 });
 
+
+// Получить доступные продукты для меню (повар)
+router.get('/available-items', authenticateToken, authorizeRole('cook'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, item_name, quantity, unit
+       FROM inventory
+       WHERE quantity > 0
+       ORDER BY item_name`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Ошибка получения доступных продуктов:', error);
+    res.status(500).json({ error: 'Ошибка при получении доступных продуктов' });
+  }
+});
+
 // Обновить остатки (повар)
 router.put('/inventory/:itemId', authenticateToken, authorizeRole('cook'), async (req, res) => {
   try {
@@ -77,7 +95,7 @@ router.put('/inventory/:itemId', authenticateToken, authorizeRole('cook'), async
     }
 
     const result = await pool.query(
-      `UPDATE inventory 
+      `UPDATE inventory
        SET quantity = $1, last_updated = NOW()
        WHERE id = $2
        RETURNING *`,
@@ -95,6 +113,36 @@ router.put('/inventory/:itemId', authenticateToken, authorizeRole('cook'), async
   } catch (error) {
     console.error('Ошибка обновления остатка:', error);
     res.status(500).json({ error: 'Ошибка при обновлении остатка' });
+  }
+});
+
+// Триггер для проверки наличия товаров и обновления меню
+router.post('/check-inventory', authenticateToken, authorizeRole('cook'), async (req, res) => {
+  try {
+    // Получаем все блюда из меню
+    const menuItems = await pool.query(
+      `SELECT m.id, m.name
+       FROM menu m
+       LEFT JOIN inventory i ON LOWER(m.name) = LOWER(i.item_name)
+       WHERE i.quantity = 0`
+    );
+
+    // Удаляем блюда, ингредиенты которых закончились
+    if (menuItems.rows.length > 0) {
+      const menuItemIds = menuItems.rows.map(item => item.id);
+      await pool.query(
+        `DELETE FROM menu WHERE id = ANY($1)`,
+        [menuItemIds]
+      );
+    }
+
+    res.json({
+      message: 'Проверка наличия выполнена',
+      removedItems: menuItems.rows.length
+    });
+  } catch (error) {
+    console.error('Ошибка проверки наличия:', error);
+    res.status(500).json({ error: 'Ошибка при проверке наличия' });
   }
 });
 
