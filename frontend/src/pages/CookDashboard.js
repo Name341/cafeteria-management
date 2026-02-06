@@ -5,6 +5,12 @@ import React, { useState, useEffect } from 'react';
 import { getMenu, createMenuItem, createPurchaseRequest, getMyPurchaseRequests, getOrdersByDate, markOrderServed, getInventory, getAvailableItems, checkInventory, receivePurchaseRequest } from '../api/services';
 import './StudentDashboard.css';
 
+const getLocalISODate = () => {
+  const now = new Date();
+  const timezoneOffsetMs = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - timezoneOffsetMs).toISOString().split('T')[0];
+};
+
 const CookDashboard = () => {
   const [activeTab, setActiveTab] = useState('served');
   const [menu, setMenu] = useState([]);
@@ -28,7 +34,7 @@ const CookDashboard = () => {
     description: ''
   });
   const [menuFormData, setMenuFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalISODate(),
     mealType: 'breakfast',
     name: '',
     description: '',
@@ -64,7 +70,7 @@ const CookDashboard = () => {
   const fetchMenu = async () => {
     setLoading(true);
     try {
-      const response = await getMenu(new Date().toISOString().split('T')[0]);
+      const response = await getMenu(getLocalISODate());
       setMenu(response.data);
     } catch (err) {
       setError('Не удалось загрузить меню');
@@ -102,7 +108,7 @@ const CookDashboard = () => {
     setOrdersLoading(true);
     setOrdersError('');
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalISODate();
       const response = await getOrdersByDate(today);
       setOrders(response.data || []);
     } catch (err) {
@@ -564,7 +570,7 @@ const CookDashboard = () => {
                   await createMenuItem(menuData);
                   alert('Блюдо добавлено в меню!');
                   setMenuFormData({
-                    date: new Date().toISOString().split('T')[0],
+                    date: getLocalISODate(),
                     mealType: 'breakfast',
                     name: '',
                     description: '',
@@ -604,7 +610,6 @@ const CookDashboard = () => {
 };
 
 export default CookDashboard;
-
 
 
 

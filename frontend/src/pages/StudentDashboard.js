@@ -2,11 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { getMenu, createOrder, getMyOrders, createPayment, getProfile, updateProfile, addReview, getInventoryReviewItems, addInventoryReview } from '../api/services';
 import './StudentDashboard.css';
 
+const getLocalISODate = () => {
+  const now = new Date();
+  const timezoneOffsetMs = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - timezoneOffsetMs).toISOString().split('T')[0];
+};
+
 const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('menu');
   const [menu, setMenu] = useState([]);
   const [myOrders, setMyOrders] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalISODate());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -105,9 +111,15 @@ const StudentDashboard = () => {
   };
 
   const handleOrder = async (mealId) => {
+    const mealIdNum = Number(mealId);
+    if (!Number.isInteger(mealIdNum) || mealIdNum <= 0) {
+      setError('Это блюдо по умолчанию и недоступно для заказа');
+      return;
+    }
+
     try {
       const response = await createOrder({
-        mealId,
+        mealId: mealIdNum,
         date: selectedDate
       });
       
@@ -217,6 +229,7 @@ const StudentDashboard = () => {
 
   const breakfastItems = menu.filter(item => item.meal_type === 'breakfast');
   const lunchItems = menu.filter(item => item.meal_type === 'lunch');
+  const isOrderableItem = (item) => Number(item.id) > 0;
 
   return (
     <div className="student-dashboard">
@@ -302,7 +315,12 @@ const StudentDashboard = () => {
                           {item.allergens && <p className="allergens">⚠️ Аллергены: {item.allergens}</p>}
                           <div className="meal-footer">
                             <span className="price">{item.price}₽</span>
-                            <button onClick={() => handleOrder(item.id)}>Заказать</button>
+                            <button
+                              onClick={() => handleOrder(item.id)}
+                              disabled={!isOrderableItem(item)}
+                            >
+                              {isOrderableItem(item) ? 'Заказать' : 'По умолчанию'}
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -329,7 +347,12 @@ const StudentDashboard = () => {
                           {item.allergens && <p className="allergens">⚠️ Аллергены: {item.allergens}</p>}
                           <div className="meal-footer">
                             <span className="price">{item.price}₽</span>
-                            <button onClick={() => handleOrder(item.id)}>Заказать</button>
+                            <button
+                              onClick={() => handleOrder(item.id)}
+                              disabled={!isOrderableItem(item)}
+                            >
+                              {isOrderableItem(item) ? 'Заказать' : 'По умолчанию'}
+                            </button>
                           </div>
                         </div>
                       ))}

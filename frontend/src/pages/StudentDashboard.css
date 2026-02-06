@@ -227,6 +227,15 @@
   background: #5568d3;
 }
 
+.meal-card button:disabled {
+  background: #b8bfcf;
+  cursor: not-allowed;
+}
+
+.meal-card button:disabled:hover {
+  background: #b8bfcf;
+}
+
 .no-items {
   text-align: center;
   color: #999;
