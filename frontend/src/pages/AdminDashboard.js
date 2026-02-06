@@ -169,13 +169,13 @@ const AdminDashboard = () => {
                             <div className="request-actions">
                               <button
                                 className="submit-btn"
-                                onClick={() => handleApproval(req.id, 'выполнено')}
+                                onClick={() => handleApproval(req.id, 'approved')}
                               >
                                 Одобрить
                               </button>
                               <button
                                 className="submit-btn"
-                                onClick={() => handleApproval(req.id, 'отклонено')}
+                                onClick={() => handleApproval(req.id, 'rejected')}
                               >
                                 Отклонить
                               </button>
@@ -205,7 +205,7 @@ const AdminDashboard = () => {
                             <div className="request-meta">
                               {req.quantity} · {req.unit_price} ₽ · {req.total_cost} ₽ ·
                               {req.status === 'approved' ? 'одобрено' :
-                               req.status === 'rejected' ? 'отклонено' :
+                               req.status === 'rejected' ? 'rejected' :
                                req.status === 'pending' ? 'ожидает' :
                                req.status}
                             </div>
@@ -256,3 +256,4 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+

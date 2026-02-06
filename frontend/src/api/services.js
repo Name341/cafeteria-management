@@ -25,6 +25,16 @@ export const getMenu = (date) => {
   return api.get(`/menu/${date}`);
 };
 
+// Р”РѕР±Р°РІРёС‚СЊ Р±Р»СЋРґРѕ РІ РјРµРЅСЋ (РїРѕРІР°СЂ/Р°РґРјРёРЅ)
+export const createMenuItem = (menuData) => {
+  return api.post('/menu', menuData);
+};
+
+// Получить позиции для отзывов (по текущим остаткам)
+export const getReviewItems = () => {
+  return api.get('/menu/review-items');
+};
+
 // Получить меню за месяц
 export const getMonthlyMenu = (year, month) => {
   return api.get(`/menu/month/${year}/${month}`);
@@ -71,6 +81,16 @@ export const getPaymentHistory = () => {
 // Добавить отзыв
 export const addReview = (reviewData) => {
   return api.post('/reviews', reviewData);
+};
+
+// Получить остатки для отзывов (ученик)
+export const getInventoryReviewItems = () => {
+  return api.get('/reviews/inventory-items');
+};
+
+// Добавить отзыв по продукту (ученик)
+export const addInventoryReview = (reviewData) => {
+  return api.post('/reviews/inventory', reviewData);
 };
 
 // Получить отзывы по блюду
@@ -126,4 +146,9 @@ export const getAvailableItems = () => {
 // Проверить наличие товаров и обновить меню (повар)
 export const checkInventory = () => {
   return api.post('/purchases/check-inventory');
+};
+
+// Принять поставку по одобренной заявке (повар)
+export const receivePurchaseRequest = (requestId) => {
+  return api.put(`/purchases/requests/${requestId}/receive`);
 };

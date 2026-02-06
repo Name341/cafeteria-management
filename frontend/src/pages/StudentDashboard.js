@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getMenu, createOrder, getMyOrders, createPayment, getProfile, updateProfile, addReview, depositBalance } from '../api/services';
+import { getMenu, createOrder, getMyOrders, createPayment, getProfile, updateProfile, addReview, getInventoryReviewItems, addInventoryReview } from '../api/services';
 import './StudentDashboard.css';
 
 const StudentDashboard = () => {
@@ -20,12 +20,12 @@ const StudentDashboard = () => {
   // Платежи
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentType, setPaymentType] = useState('one-time');
-  const [depositAmount, setDepositAmount] = useState('');
 
   // Отзывы
   const [reviewMealId, setReviewMealId] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
+  const [reviewItems, setReviewItems] = useState([]);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -37,8 +37,16 @@ const StudentDashboard = () => {
     } else if (activeTab === 'profile') {
       fetchProfile();
     } else if (activeTab === 'reviews') {
-      fetchMenu();
+      fetchReviewItems();
     }
+  }, [activeTab, selectedDate]);
+
+  useEffect(() => {
+    if (activeTab !== 'reviews') return undefined;
+    const intervalId = setInterval(() => {
+      fetchReviewItems();
+    }, 20000);
+    return () => clearInterval(intervalId);
   }, [activeTab, selectedDate]);
 
   const fetchMenu = async () => {
@@ -69,6 +77,7 @@ const StudentDashboard = () => {
 
   const fetchProfile = async () => {
     setLoading(true);
+    setError('');
     try {
       const response = await getProfile();
       setProfile(response.data);
@@ -76,30 +85,22 @@ const StudentDashboard = () => {
       setPreferences(response.data.preferences || '');
       setError('');
     } catch (err) {
-      setError('Не удалось загрузить профиль');
+      const status = err.response?.status;
+      const data = err.response?.data;
+      const details = data ? ` (${JSON.stringify(data)})` : '';
+      setError(`Ошибка при получении профиля${status ? ` [${status}]` : ''}${details}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeposit = async () => {
-    if (!depositAmount || depositAmount <= 0) {
-      setError('Введите корректную сумму для пополнения');
-      return;
-    }
-    
+  const fetchReviewItems = async () => {
     try {
-      const response = await depositBalance(parseFloat(depositAmount));
-      setSuccessMessage(`Баланс успешно пополнен на ${depositAmount}₽!`);
-      setDepositAmount('');
-      // Обновляем профиль для отображения нового баланса
-      setProfile(prev => ({
-        ...prev,
-        balance: response.data.balance
-      }));
-      setTimeout(() => setSuccessMessage(''), 3000);
+      const response = await getInventoryReviewItems();
+      setReviewItems(response.data);
+      setError('');
     } catch (err) {
-      setError('Ошибка при пополнении баланса');
+      setError(err.response?.data?.error || 'Ошибка при получении списка остатков');
     }
   };
 
@@ -114,10 +115,17 @@ const StudentDashboard = () => {
       if (response.data.deductedAmount) {
         setSuccessMessage(`Заказ создан! Списано: ${response.data.deductedAmount}₽`);
         // Обновляем баланс в профиле
+        const newBalance = response.data.newBalance || ((parseFloat(profile.balance) || 0) - response.data.deductedAmount);
         setProfile(prev => ({
           ...prev,
-          balance: (parseFloat(prev.balance) || 0) - response.data.deductedAmount
+          balance: newBalance
         }));
+        // Также обновляем баланс в localStorage
+        const updatedUser = {
+          ...user,
+          balance: newBalance
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
       } else {
         setSuccessMessage('Заказ создан!');
       }
@@ -135,15 +143,29 @@ const StudentDashboard = () => {
       return;
     }
     try {
-      await createPayment({
+      setError('');
+      const response = await createPayment({
         amount: parseFloat(paymentAmount),
         paymentType
       });
       setSuccessMessage('Платеж успешно выполнен!');
       setPaymentAmount('');
+      if (response?.data?.balance !== undefined) {
+        setProfile(prev => ({
+          ...prev,
+          balance: response.data.balance
+        }));
+        const updatedUser = {
+          ...user,
+          balance: response.data.balance
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        fetchProfile();
+      }
+
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError('Ошибка при обработке платежа');
+      setError(err.response?.data?.error || 'Ошибка при обработке платежа');
     }
   };
 
@@ -163,14 +185,20 @@ const StudentDashboard = () => {
   };
 
   const handleReview = async () => {
-    if (!reviewMealId) {
-      setError('Выберите блюдо для отзыва');
+    const mealIdNum = Number(reviewMealId);
+    const ratingNum = Number(reviewRating);
+    if (!Number.isInteger(mealIdNum) || mealIdNum <= 0) {
+      setError('Выберите продукт из остатков');
+      return;
+    }
+    if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      setError('Оценка должна быть от 1 до 5 звезд');
       return;
     }
     try {
-      await addReview({
-        mealId: parseInt(reviewMealId),
-        rating: parseInt(reviewRating),
+      await addInventoryReview({
+        inventoryId: mealIdNum,
+        rating: ratingNum,
         comment: reviewComment
       });
       setSuccessMessage('Отзыв отправлен!');
@@ -178,8 +206,12 @@ const StudentDashboard = () => {
       setReviewComment('');
       setReviewRating(5);
       setTimeout(() => setSuccessMessage(''), 3000);
+      setError('');
     } catch (err) {
-      setError('Ошибка при отправке отзыва');
+      const status = err.response?.status;
+      const data = err.response?.data;
+      const details = data ? ` (${JSON.stringify(data)})` : '';
+      setError(`Ошибка при добавлении отзыва${status ? ` [${status}]` : ''}${details}`);
     }
   };
 
@@ -407,20 +439,6 @@ const StudentDashboard = () => {
                         rows="3"
                       />
                     </div>
-                    <div className="form-group">
-                      <label>Пополнить баланс:</label>
-                      <div className="balance-controls">
-                        <input
-                          type="number"
-                          value={depositAmount}
-                          onChange={(e) => setDepositAmount(e.target.value)}
-                          placeholder="Сумма пополнения"
-                          min="0"
-                          step="100"
-                        />
-                        <button onClick={handleDeposit} className="deposit-btn">Пополнить</button>
-                      </div>
-                    </div>
                     <div className="button-group">
                       <button onClick={handleUpdateProfile} className="save-btn">Сохранить</button>
                       <button onClick={() => setEditProfile(false)} className="cancel-btn">Отмена</button>
@@ -452,27 +470,29 @@ const StudentDashboard = () => {
         {activeTab === 'reviews' && (
           <div className="tab-content">
             <h2>⭐ Оставить отзыв о блюде</h2>
-            <div className="review-form">
+              <button onClick={fetchReviewItems} className="refresh-btn">Обновить список</button>
+              <div className="review-form">
+                <div className="form-group">
+                  <label>Выберите продукт:</label>
+                  <select value={reviewMealId} onChange={(e) => setReviewMealId(e.target.value)}>
+                    <option value="">-- Выберите продукт --</option>
+                    {reviewItems.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.item_name || item.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               <div className="form-group">
-                <label>Выберите блюдо:</label>
-                <select value={reviewMealId} onChange={(e) => setReviewMealId(e.target.value)}>
-                  <option value="">-- Выберите блюдо --</option>
-                  {menu.map(item => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Оценка:</label>
+                <label>Оценка: {reviewRating} звезд(а)</label>
                 <div className="rating-selector">
                   {[1, 2, 3, 4, 5].map(star => (
-                    <button
-                      key={star}
-                      className={`star ${star <= reviewRating ? 'active' : ''}`}
-                      onClick={() => setReviewRating(star)}
-                    >
+                      <button
+                        key={star}
+                        type="button"
+                        className={`star ${star <= reviewRating ? 'active' : ''}`}
+                        onClick={() => setReviewRating(star)}
+                      >
                       ⭐
                     </button>
                   ))}

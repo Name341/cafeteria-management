@@ -1,8 +1,26 @@
 const express = require('express');
 const pool = require('../config/database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Получить позиции для отзывов (по текущим остаткам)
+router.get('/review-items', authenticateToken, authorizeRole('student'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT m.id, m.name
+       FROM menu m
+       INNER JOIN inventory i ON LOWER(m.name) = LOWER(i.item_name)
+       WHERE i.quantity > 0
+       ORDER BY m.name`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Ошибка получения списка для отзывов:', error);
+    res.status(500).json({ error: 'Ошибка при получении списка для отзывов' });
+  }
+});
 
 // Получить меню на дату
 router.get('/:date', async (req, res) => {

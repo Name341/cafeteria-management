@@ -59,7 +59,8 @@ router.post('/', authenticateToken, authorizeRole('student'), async (req, res) =
     res.status(201).json({
       message: 'Заказ создан',
       order: result.rows[0],
-      deductedAmount: totalAmount
+      deductedAmount: totalAmount,
+      newBalance: userBalance - totalAmount
     });
   } catch (error) {
     console.error('Ошибка создания заказа:', error);

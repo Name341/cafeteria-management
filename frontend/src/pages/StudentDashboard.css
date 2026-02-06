@@ -482,19 +482,33 @@
 
 .rating-selector {
   display: flex;
-  gap: 10px;
+  gap: 5px;
+  align-items: center;
 }
 
 .star {
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: 32px;
   cursor: pointer;
-  transition: all 0.2s;
-  opacity: 0.3;
+  transition: all 0.3s ease;
+  color: #ddd;
+  padding: 5px;
+  border-radius: 50%;
+}
+
+.star:hover {
+  transform: scale(1.2);
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
 }
 
 .star.active {
-  opacity: 1;
+  color: #ffd700;
   transform: scale(1.2);
+  text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+}
+
+.star:not(.active):hover {
+  color: #ffd700;
 }

@@ -144,7 +144,12 @@ router.get('/profile', authenticateToken, async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Ошибка получения профиля:', error);
-    res.status(500).json({ error: 'Ошибка при получении профиля' });
+    res.status(500).json({
+      error: 'Ошибка при получении профиля',
+      details: error.message,
+      code: error.code,
+      detail: error.detail
+    });
   }
 });
 
@@ -164,7 +169,14 @@ router.put('/profile', authenticateToken, async (req, res) => {
 
     res.json({
       message: 'Профиль обновлен',
-      user: result.rows[0]
+      user: {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        full_name: result.rows[0].full_name,
+        allergies: result.rows[0].allergies,
+        preferences: result.rows[0].preferences,
+        balance: result.rows[0].balance
+      }
     });
   } catch (error) {
     console.error('Ошибка обновления профиля:', error);

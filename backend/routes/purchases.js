@@ -84,6 +84,85 @@ router.get('/available-items', authenticateToken, authorizeRole('cook'), async (
   }
 });
 
+// Принять поставку по одобренной заявке (повар)
+router.put('/requests/:requestId/receive', authenticateToken, authorizeRole('cook'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { requestId } = req.params;
+
+    await client.query('BEGIN');
+
+    const requestResult = await client.query(
+      `SELECT id, item_name, quantity, unit, status
+       FROM purchase_requests
+       WHERE id = $1`,
+      [requestId]
+    );
+
+    if (requestResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Заявка не найдена' });
+    }
+
+    const request = requestResult.rows[0];
+    if (request.status !== 'approved') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Заявка не одобрена' });
+    }
+
+    const inventoryResult = await client.query(
+      `SELECT id, quantity
+       FROM inventory
+       WHERE LOWER(item_name) = LOWER($1)
+       LIMIT 1`,
+      [request.item_name]
+    );
+
+    let inventoryItem;
+    if (inventoryResult.rows.length > 0) {
+      inventoryItem = await client.query(
+        `UPDATE inventory
+         SET quantity = quantity + $1, last_updated = NOW()
+         WHERE id = $2
+         RETURNING *`,
+        [request.quantity, inventoryResult.rows[0].id]
+      );
+    } else {
+      inventoryItem = await client.query(
+        `INSERT INTO inventory (item_name, quantity, unit, last_updated)
+         VALUES ($1, $2, $3, NOW())
+         RETURNING *`,
+        [request.item_name, request.quantity, request.unit]
+      );
+    }
+
+    await client.query(
+      `UPDATE purchase_requests
+       SET status = 'received', updated_at = NOW()
+       WHERE id = $1`,
+      [request.id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'Поставка принята, остатки обновлены',
+      inventoryItem: inventoryItem.rows[0]
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Ошибка при принятии поставки:', error);
+    res.status(500).json({
+      error: 'Ошибка при принятии поставки',
+      details: error.message,
+      code: error.code,
+      detail: error.detail
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // Обновить остатки (повар)
 router.put('/inventory/:itemId', authenticateToken, authorizeRole('cook'), async (req, res) => {
   try {

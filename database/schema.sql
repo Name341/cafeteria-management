@@ -64,6 +64,17 @@ CREATE TABLE IF NOT EXISTS reviews (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Таблица отзывов по остаткам (продуктам)
+CREATE TABLE IF NOT EXISTS inventory_reviews (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  inventory_id INT NOT NULL REFERENCES inventory(id) ON DELETE CASCADE,
+  rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Таблица заявок на закупки
 CREATE TABLE IF NOT EXISTS purchase_requests (
   id SERIAL PRIMARY KEY,
@@ -74,7 +85,7 @@ CREATE TABLE IF NOT EXISTS purchase_requests (
   unit_price DECIMAL(10, 2) NOT NULL,
   total_cost DECIMAL(10, 2) NOT NULL,
   description TEXT,
-  status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+    status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'received')) DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -97,6 +108,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_order_date ON orders(order_date);
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_meal_id ON reviews(meal_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_reviews_inventory_id ON inventory_reviews(inventory_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_requests_cook_id ON purchase_requests(cook_id);
 
 -- Вставка тестовых данных

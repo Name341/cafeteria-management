@@ -2,7 +2,7 @@
 console.log('CookDashboard component loaded');
 /* eslint-disable import/first */
 import React, { useState, useEffect } from 'react';
-import { getMenu, createPurchaseRequest, getMyPurchaseRequests, getOrdersByDate, markOrderServed, getInventory, getAvailableItems, checkInventory } from '../api/services';
+import { getMenu, createMenuItem, createPurchaseRequest, getMyPurchaseRequests, getOrdersByDate, markOrderServed, getInventory, getAvailableItems, checkInventory, receivePurchaseRequest } from '../api/services';
 import './StudentDashboard.css';
 
 const CookDashboard = () => {
@@ -84,6 +84,18 @@ const CookDashboard = () => {
     } finally {
       setRequestsLoading(false);
     }
+  };
+  const handleReceiveRequest = async (requestId) => {
+    try {
+      await receivePurchaseRequest(requestId);
+      fetchMyRequests();
+      fetchInventoryItems();
+        alert('\u041F\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u043F\u0440\u0438\u043D\u044F\u0442\u0430 \u0438 \u043E\u0441\u0442\u0430\u0442\u043A\u0438 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u044B');
+      } catch (err) {
+        const data = err.response?.data;
+        const details = data ? ` (${JSON.stringify(data)})` : '';
+        alert('\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u0438\u043D\u044F\u0442\u0438\u0438 \u043F\u043E\u0441\u0442\u0430\u0432\u043A\u0438: ' + (data?.error || err.message) + details);
+      }
   };
 
   const fetchOrdersForToday = async () => {
@@ -410,6 +422,16 @@ const CookDashboard = () => {
                           <div className="request-meta">
                             {req.quantity} {req.unit} · {req.unit_price} ₽ · {req.status}
                           </div>
+                          {req.status === 'approved' && (
+                            <div className="request-actions">
+                              <button
+                                className="submit-btn"
+                                onClick={() => handleReceiveRequest(req.id)}
+                              >
+                                {'\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u043F\u043E\u0441\u0442\u0430\u0432\u043A\u0443'}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -539,36 +561,23 @@ const CookDashboard = () => {
                     carbs: menuFormData.carbs ? parseFloat(menuFormData.carbs) : null
                   };
                   
-                  const response = await fetch('/api/menu', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify(menuData)
+                  await createMenuItem(menuData);
+                  alert('Блюдо добавлено в меню!');
+                  setMenuFormData({
+                    date: new Date().toISOString().split('T')[0],
+                    mealType: 'breakfast',
+                    name: '',
+                    description: '',
+                    price: '',
+                    allergens: '',
+                    calories: '',
+                    proteins: '',
+                    fats: '',
+                    carbs: ''
                   });
-                  
-                  if (response.ok) {
-                    alert('Блюдо добавлено в меню!');
-                    setMenuFormData({
-                      date: new Date().toISOString().split('T')[0],
-                      mealType: 'breakfast',
-                      name: '',
-                      description: '',
-                      price: '',
-                      allergens: '',
-                      calories: '',
-                      proteins: '',
-                      fats: '',
-                      carbs: ''
-                    });
-                    fetchMenu(); // Обновляем меню
-                  } else {
-                    const error = await response.json();
-                    alert('Ошибка: ' + error.error);
-                  }
+                  fetchMenu(); // Обновляем меню
                 } catch (err) {
-                  alert('Ошибка при добавлении блюда в меню');
+                  alert('Ошибка при добавлении блюда в меню: ' + (err.response?.data?.error || err.message));
                 }
               }}>Добавить в меню</button>
             </div>
@@ -595,3 +604,8 @@ const CookDashboard = () => {
 };
 
 export default CookDashboard;
+
+
+
+
+

@@ -13,6 +13,19 @@ router.post('/', authenticateToken, authorizeRole('student'), async (req, res) =
       return res.status(400).json({ error: 'Необходимы сумма и тип платежа' });
     }
 
+    if (amount <= 0) {
+      return res.status(400).json({ error: 'Сумма должна быть положительной' });
+    }
+
+    // Обновляем баланс пользователя
+    const userResult = await pool.query(
+      `UPDATE users
+       SET balance = balance + $1
+       WHERE id = $2
+       RETURNING balance`,
+      [amount, req.user.id]
+    );
+
     // Создаем платеж
     const result = await pool.query(
       `INSERT INTO payments (user_id, amount, payment_type, status, created_at)
@@ -23,7 +36,8 @@ router.post('/', authenticateToken, authorizeRole('student'), async (req, res) =
 
     res.status(201).json({
       message: 'Платеж создан',
-      payment: result.rows[0]
+      payment: result.rows[0],
+      balance: userResult.rows[0].balance
     });
   } catch (error) {
     console.error('Ошибка создания платежа:', error);
