@@ -17,8 +17,8 @@
 
 1. Клонируйте репозиторий:
 ```bash
-git clone <repository-url>
-cd project
+git clone https://github.com/Name341/cafeteria-management
+cd cafeteria-management
 ```
 
 2. Скопируйте файл переменных окружения:
@@ -38,7 +38,6 @@ docker-compose up -d --build
    - API: http://localhost:5000
    
   
-
 ### Локальная разработка
 
 #### Backend
