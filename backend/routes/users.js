@@ -159,8 +159,8 @@ router.put('/profile', authenticateToken, async (req, res) => {
     const { fullName, allergies, preferences } = req.body;
 
     const result = await pool.query(
-      'UPDATE users SET full_name = $1, allergies = $2, preferences = $3 WHERE id = $4 RETURNING id, email, full_name, allergies, preferences, balance',
-      [fullName, allergies, preferences, req.user.id]
+      'UPDATE users SET full_name = COALESCE($1, full_name), allergies = COALESCE($2, allergies), preferences = COALESCE($3, preferences) WHERE id = $4 RETURNING id, email, full_name, allergies, preferences, balance',
+      [fullName ?? null, allergies ?? null, preferences ?? null, req.user.id]
     );
 
     if (result.rows.length === 0) {

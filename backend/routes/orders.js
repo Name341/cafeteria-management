@@ -105,7 +105,15 @@ router.put('/:orderId/mark-received', authenticateToken, async (req, res) => {
 router.get('/my-orders', authenticateToken, authorizeRole('student'), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT o.id, o.meal_id, m.name, m.description, o.order_date, o.status, o.received_at
+      `SELECT 
+         o.id,
+         o.meal_id,
+         m.name AS meal_name,
+         m.description,
+         o.order_date,
+         o.status,
+         o.received_at,
+         o.created_at
        FROM orders o
        LEFT JOIN menu m ON o.meal_id = m.id
        WHERE o.user_id = $1

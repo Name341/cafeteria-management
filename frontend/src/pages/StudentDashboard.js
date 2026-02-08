@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { getMenu, createOrder, getMyOrders, createPayment, getProfile, updateProfile, addReview, getInventoryReviewItems, addInventoryReview } from '../api/services';
+﻿import React, { useState, useEffect } from 'react';
+import { getMenu, createOrder, getMyOrders, createPayment, getProfile, updateProfile, addReview, getReviewItems, markOrderReceived } from '../api/services';
 import './StudentDashboard.css';
 
 const getLocalISODate = () => {
@@ -102,11 +102,11 @@ const StudentDashboard = () => {
 
   const fetchReviewItems = async () => {
     try {
-      const response = await getInventoryReviewItems();
+      const response = await getReviewItems();
       setReviewItems(response.data);
       setError('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка при получении списка остатков');
+      setError(err.response?.data?.error || 'Ошибка при получении списка меню');
     }
   };
 
@@ -200,7 +200,7 @@ const StudentDashboard = () => {
     const mealIdNum = Number(reviewMealId);
     const ratingNum = Number(reviewRating);
     if (!Number.isInteger(mealIdNum) || mealIdNum <= 0) {
-      setError('Выберите продукт из остатков');
+      setError('Выберите блюдо из меню');
       return;
     }
     if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
@@ -208,8 +208,8 @@ const StudentDashboard = () => {
       return;
     }
     try {
-      await addInventoryReview({
-        inventoryId: mealIdNum,
+      await addReview({
+        mealId: mealIdNum,
         rating: ratingNum,
         comment: reviewComment
       });
@@ -224,6 +224,18 @@ const StudentDashboard = () => {
       const data = err.response?.data;
       const details = data ? ` (${JSON.stringify(data)})` : '';
       setError(`Ошибка при добавлении отзыва${status ? ` [${status}]` : ''}${details}`);
+    }
+  };
+
+  const handleMarkReceived = async (orderId) => {
+    try {
+      setError('');
+      await markOrderReceived(orderId);
+      setSuccessMessage('Заказ отмечен как полученный.');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      fetchMyOrders();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не удалось отметить получение заказа');
     }
   };
 
@@ -377,13 +389,15 @@ const StudentDashboard = () => {
                 {myOrders.map(order => (
                   <div key={order.id} className="order-item">
                     <div className="order-header">
-                      <h3>{order.meal_name}</h3>
-                      <span className={`status status-${order.status}`}>{order.status}</span>
+                      <h3>{order.meal_name || order.name}</h3>
+                      <span className={`status status-${order.status}`}>
+                        {order.status === 'pending' ? 'Ожидает' : order.status === 'received' ? 'Получен' : order.status}
+                      </span>
                     </div>
-                    <p>Дата заказа: {new Date(order.created_at).toLocaleDateString('ru-RU')}</p>
-                    <p>Дата получения: {order.order_date}</p>
+                      <p>Дата заказа: {order.created_at ? new Date(order.created_at).toLocaleDateString('ru-RU') : order.order_date}</p>
+                      <p>Дата получения: {order.received_at ? new Date(order.received_at).toLocaleDateString('ru-RU') : '-'}</p>
                     {order.status === 'pending' && (
-                      <button className="mark-received-btn">Отметить получением</button>
+                      <button className="mark-received-btn" onClick={() => handleMarkReceived(order.id)}>Отметить получением</button>
                     )}
                   </div>
                 ))}
@@ -496,9 +510,9 @@ const StudentDashboard = () => {
               <button onClick={fetchReviewItems} className="refresh-btn">Обновить список</button>
               <div className="review-form">
                 <div className="form-group">
-                  <label>Выберите продукт:</label>
+                  <label>Выберите блюдо:</label>
                   <select value={reviewMealId} onChange={(e) => setReviewMealId(e.target.value)}>
-                    <option value="">-- Выберите продукт --</option>
+                    <option value="">-- Выберите блюдо --</option>
                     {reviewItems.map(item => (
                       <option key={item.id} value={item.id}>
                         {item.item_name || item.name}
@@ -540,3 +554,7 @@ const StudentDashboard = () => {
 };
 
 export default StudentDashboard;
+
+
+
+

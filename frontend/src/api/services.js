@@ -109,8 +109,28 @@ export const getStatistics = () => {
 };
 
 // Отчет по затратам (администратор)
-export const getExpensesReport = () => {
-  return api.get('/admin/expenses-report');
+export const getExpensesReport = (startDate, endDate) => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const query = params.toString();
+  return api.get(`/admin/expenses-report${query ? `?${query}` : ''}`);
+};
+
+export const getNutritionReport = (startDate, endDate) => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const query = params.toString();
+  return api.get(`/admin/nutrition-report${query ? `?${query}` : ''}`);
+};
+
+export const getRevenueReport = (startDate, endDate) => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const query = params.toString();
+  return api.get(`/admin/revenue-report${query ? `?${query}` : ''}`);
 };
 
 // РЎРѕРіР»Р°СЃРѕРІР°С‚СЊ Р·Р°СЏРІРєСѓ (Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ)

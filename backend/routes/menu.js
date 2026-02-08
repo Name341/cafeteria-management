@@ -51,11 +51,10 @@ const appendDefaultBreakfastItems = (menuItems) => {
 router.get('/review-items', authenticateToken, authorizeRole('student'), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT m.id, m.name
+      `SELECT DISTINCT ON (LOWER(m.name)) m.id, m.name, m.date
        FROM menu m
-       INNER JOIN inventory i ON LOWER(m.name) = LOWER(i.item_name)
-       WHERE i.quantity > 0
-       ORDER BY m.name`
+       WHERE LOWER(m.name) <> 'тестовое блюдо'
+       ORDER BY LOWER(m.name), m.date DESC, m.id DESC`
     );
 
     res.json(result.rows);

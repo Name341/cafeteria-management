@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getExpensesReport, approvePurchaseRequest } from '../api/services';
+import { getExpensesReport, getNutritionReport, getRevenueReport, approvePurchaseRequest } from '../api/services';
 import './StudentDashboard.css';
 
 const AdminDashboard = () => {
@@ -9,6 +9,12 @@ const AdminDashboard = () => {
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestsError, setRequestsError] = useState('');
   const [purchaseRequests, setPurchaseRequests] = useState([]);
+  const [reportType, setReportType] = useState('expenses');
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [reportData, setReportData] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState('');
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -32,7 +38,8 @@ const AdminDashboard = () => {
     setRequestsError('');
     try {
       const response = await getExpensesReport();
-      setPurchaseRequests(response.data || []);
+      const items = response.data?.items || response.data || [];
+      setPurchaseRequests(items);
     } catch (err) {
       setRequestsError('Не удалось загрузить заявки на закупку');
     } finally {
@@ -49,7 +56,42 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleReportSubmit = async (event) => {
+    event.preventDefault();
+    setReportError('');
+    setReportData(null);
 
+    if (!reportStartDate || !reportEndDate) {
+      setReportError('Пожалуйста укажите дату с и до');
+      return;
+    }
+
+    if (reportEndDate < reportStartDate) {
+      setReportError('Дата "до" не может быть раньше даты "с"');
+      return;
+    }
+
+    setReportLoading(true);
+    try {
+      const response = reportType === 'expenses'
+        ? await getExpensesReport(reportStartDate, reportEndDate)
+        : reportType === 'nutrition'
+          ? await getNutritionReport(reportStartDate, reportEndDate)
+          : await getRevenueReport(reportStartDate, reportEndDate);
+      setReportData(response.data || null);
+    } catch (err) {
+      setReportError(err.response?.data?.error || 'Ошибка при формировании отчета');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const formatDate = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('ru-RU');
+  };
   return (
     <div className="student-dashboard">
       <header className="dashboard-header">
@@ -223,30 +265,115 @@ const AdminDashboard = () => {
         {activeTab === 'reports' && (
           <div className="tab-content">
             <h2>📄 Формирование отчетов</h2>
-            <div className="reports-form">
+                        <form className="reports-form" onSubmit={handleReportSubmit}>
               <div className="form-group">
                 <label>Тип отчета:</label>
-                <select>
-                  <option>Отчет по оплатам</option>
-                  <option>Отчет по посещаемости</option>
-                  <option>Отчет по затратам</option>
-                  <option>Отчет по питанию</option>
+                <select value={reportType} onChange={(event) => setReportType(event.target.value)}>
+                  <option value="expenses">Отчет по затратам</option>
+                  <option value="nutrition">Отчет по питанию</option>
+                  <option value="revenue">{'\u041e\u0442\u0447\u0435\u0442 \u043f\u043e \u0432\u044b\u0440\u0443\u0447\u043a\u0435'}</option>
                 </select>
               </div>
               <div className="form-group">
-                <label>Период:</label>
-                <select>
-                  <option>День</option>
-                  <option>Неделя</option>
-                  <option>Месяц</option>
-                  <option>Год</option>
-                </select>
+                <label>Дата с:</label>
+                <input
+                  type="date"
+                  value={reportStartDate}
+                  onChange={(event) => setReportStartDate(event.target.value)}
+                />
               </div>
-              <button className="submit-btn">Сформировать отчет</button>
-            </div>
+              <div className="form-group">
+                <label>Дата по:</label>
+                <input
+                  type="date"
+                  value={reportEndDate}
+                  onChange={(event) => setReportEndDate(event.target.value)}
+                />
+              </div>
+              <button className="submit-btn" type="submit">Сформировать отчет</button>
+            </form>
             <div className="reports-list">
-              <h3>Сгенерированные отчеты:</h3>
-              <p className="no-items">Отчетов не найдено</p>
+              <h3>Сформированный отчет:</h3>
+              {reportError && <div className="error-message">{reportError}</div>}
+              {reportLoading ? (
+                <div className="loading">Загрузка...</div>
+              ) : reportData ? (
+                <>
+                  {reportType === 'expenses' ? (
+                    <>
+                      <p className="no-items">
+                        Итого заявок: {reportData.totals?.total_requests || 0} ·
+                        Сумма затрат: {reportData.totals?.total_cost || 0} ₽
+                      </p>
+                      {reportData.items?.length ? (
+                        <div className="requests-table">
+                          {reportData.items.map((item) => (
+                            <div className="request-item" key={item.id}>
+                              <div className="request-name">{item.item_name}</div>
+                              <div className="request-meta">
+                                {item.quantity} · {item.unit_price} ₽ · {item.total_cost} ₽ ·
+                                {item.status} · {formatDate(item.created_at)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-items">Нет данных по затратам</p>
+                      )}
+                    </>
+                    ) : reportType === 'nutrition' ? (
+                      <>
+                      <p className="no-items">
+                        Итого заказов: {reportData.totals?.total_orders || 0} ·
+                        Порций: {reportData.totals?.total_portions || 0} ·
+                        Сумма: {reportData.totals?.total_amount || 0} ₽
+                      </p>
+                      {reportData.items?.length ? (
+                        <div className="requests-table">
+                          {reportData.items.map((item) => (
+                            <div className="request-item" key={item.id}>
+                              <div className="request-name">{item.name}</div>
+                              <div className="request-meta">
+                                {item.meal_type} ·
+                                Заказов: {item.orders_count} ·
+                                Порций: {item.total_portions} ·
+                                Сумма: {item.total_amount} ₽
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-items">Нет данных по питанию</p>
+                      )}
+                    </>
+                  ) : (
+
+                      <>
+                        <p className="no-items">
+                          ����� ��������: {reportData.totals?.total_payments || 0} �
+                          ����� �������: {reportData.totals?.total_amount || 0} ���.
+                        </p>
+                        {reportData.items?.length ? (
+                          <div className="requests-table">
+                            {reportData.items.map((item) => (
+                              <div className="request-item" key={item.id}>
+                                <div className="request-name">������ #{item.id}</div>
+                                <div className="request-meta">
+                                  {item.amount} ���. � {item.payment_type} � {item.status} � {formatDate(item.created_at)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="no-items">��� ������ �� �������</p>
+                        )}
+                      </>
+                    )}
+                  </>
+                  ) : (
+
+                <p className="no-items">Отчет еще не формирован</p>
+              )}
             </div>
           </div>
         )}
@@ -256,4 +383,13 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+
+
+
+
+
+
+
+
 
